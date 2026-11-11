@@ -5,6 +5,16 @@ namespace RenderHeads.Media.AVProVideo
     public class MediaPlayer : MonoBehaviour
     {
         [SerializeField] float _playbackRate = 1.0f;
+        // AVPro Video 3.2.9 used _playbackRate, current versions (3.4.x) use
+        // m_PlaybackRate. Keep both so the Speed animation can bind to either
+        // version of the runtime component.
+        [SerializeField] float m_PlaybackRate = 1.0f;
+
+        public float PlaybackRate
+        {
+            get => m_PlaybackRate;
+            set => m_PlaybackRate = value;
+        }
 
         public virtual ITextureProducer TextureProducer => null;
         public virtual IMediaControl Control => null;
