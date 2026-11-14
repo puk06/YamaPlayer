@@ -59,16 +59,30 @@ namespace Yamadev.YamaStream
     private void UpdateSyncedVideoTime(float time)
     {
       _syncedVideoTime = Mathf.Clamp(time - _localDelay, 0f, Duration);
-      // Use the monotonic server clock instead of GetNetworkDateTime().
-      // GetNetworkDateTime() is a wall clock and can jump backwards when the
-      // network time is corrected, which used to cause a rewind.
-      _serverTimeMilliseconds = (long)Networking.GetServerTimeInMilliseconds();
+      // Use the server clock instead of GetNetworkDateTime(). GetNetworkDateTime()
+      // is a wall clock and can jump backwards when the network time is
+      // corrected, which used to cause a rewind.
+      // The return value is a 32-bit counter: it can be negative and wraps
+      // around about every 49.7 days, so store the raw value and let
+      // CalculateServerDeltaTime unwrap it when computing the offset.
+      _serverTimeMilliseconds = Networking.GetServerTimeInMilliseconds();
     }
 
     private void ResetSyncedVideoTime()
     {
       _syncedVideoTime = 0;
       _serverTimeMilliseconds = 0;
+    }
+
+    // Elapsed seconds since _serverTimeMilliseconds was captured.
+    private double GetServerTimeDeltaSeconds()
+    {
+      // Subtracting the timestamps directly (even after widening them to
+      // long) turns the 32-bit wraparound into a ~49.7 day jump. This helper
+      // takes seconds and corrects for the wraparound.
+      return Networking.CalculateServerDeltaTime(
+        Networking.GetServerTimeInMilliseconds() * 0.001,
+        _serverTimeMilliseconds * 0.001);
     }
 
     private void EnsureVideoTime(bool force = false)
@@ -86,7 +100,7 @@ namespace Yamadev.YamaStream
         return;
       }
 
-      float offset = Paused ? 0 : (float)((long)Networking.GetServerTimeInMilliseconds() - _serverTimeMilliseconds) / 1000f * Speed;
+      float offset = Paused ? 0 : (float)(GetServerTimeDeltaSeconds() * Speed);
       float targetTime = Mathf.Clamp(_syncedVideoTime + offset + _localDelay, 0f, Duration);
 
       if (Networking.IsOwner(gameObject))
